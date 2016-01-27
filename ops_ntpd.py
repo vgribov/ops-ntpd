@@ -82,10 +82,13 @@ translate_peer_status_word = {
   "sel_pps.peer" : "pps_peer"
 }
 translate_peer_type = {
-  "u" : "unicast",
-  "b" : "bcast_or_mcast_",
+  "u" : "uni_or_many_cast",
+  "b" : "bcast_or_mcast_client",
   "l" : "local_ref_clock",
-  "m" : "mcast_server"
+  "s" : "symm_peer",
+  "A" : "manycast_server",
+  "B" : "bcast_server",
+  "M" : "mcast_server"
 }
 
 # Defaults
