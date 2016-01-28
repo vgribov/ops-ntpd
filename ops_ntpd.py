@@ -24,7 +24,7 @@ NOTES:
    ops_ntpd_sync_to_ovsdb script.
 '''
 
-import os, sys, time, signal, shutil, copy
+import os, sys, time, signal, shutil, copy, hashlib
 import argparse, subprocess, json, pprint
 import ovs.dirs
 from ovs.db import error
@@ -55,6 +55,7 @@ g_ntpa_map   = {}
 g_ntpk_db    = {}
 controlkey   = 65535
 cmdline_str  = ""
+auth_state   = "false"
 default_assoc_info = {
     "remote_peer_address" : "-",
     "remote_peer_ref_id" : "-",
@@ -93,8 +94,8 @@ translate_peer_type = {
 
 # Defaults
 DEFAULT_NTP_KEY_ID        = 0
-DEFAULT_NTP_PREF          = False
-DEFAULT_NTP_VERSION       = 3
+DEFAULT_NTP_PREF          = "false"
+DEFAULT_NTP_VERSION       = "3"
 DEFAULT_NTP_REF_CLOCK_ID  = ".LOCL."
 DEFAULT_NTP_TRUST_ENABLE  = False
 
@@ -216,13 +217,9 @@ def ops_ntpd_setup_ntpq_integration(ntp_working_dir_path):
        More info: http://doc.ntp.org/4.1.0/ntpq.htm
     '''
     global ntpq_info, cmdline_str
-    os.system("cd %s;ntp-keygen -M"%ntp_working_dir_path)
     filepath = ntp_working_dir_path + "ntp.keys"
-    for line in ops_ntpd_get_file_contents(filepath):
-        if line.endswith("# MD5 key\n"):
-            controlkey_answer = line.strip().split()[2][:16]
-            break
-    os.system("rm -rf %s/*;"%ntp_working_dir_path)
+    random_data = os.urandom(128)
+    controlkey_answer = hashlib.md5(random_data).hexdigest()[:16]
     ntpq_info = (controlkey, controlkey_answer)
     #Build a commandline string to execute
     cmdline_str = "ntpq -c \"keyid %d\" -c \"passwd %s\""%\
@@ -322,13 +319,18 @@ def ops_ntpd_sync_updates_to_ntpd(server_configs, key_configs, \
     '''
     global cmdline_str
     global ntpd_info
+    global ntpq_info
     command = copy.copy(cmdline_str)
     for config in server_configs+key_configs:
        command += " -c \"%s\""%(config)
 
     ops_ntpd_set_file_contents(ntpd_info[1], keys_file_content)
-    ops_ntpd_run_command("ntpdc -c \"readkeys\"")
-    ops_ntpd_run_command(command)
+    e, o = ops_ntpd_run_command("ntpdc -c \"keyid %d\" -c \"passwd \
+            %s\" -c \"readkeys\""%(ntpq_info[0],ntpq_info[1]))
+    time.sleep(2)
+    vlog.dbg("NTPDC command was %s: done"%e)
+    e, o = ops_ntpd_run_command(command)
+    vlog.dbg("NTPQ command was %s: done"%e)
     vlog.info("Sync OVSDB -> NTPD : done")
 
 def ops_ntpd_get_ntpd_associations_info(ntpd_updates):
@@ -468,7 +470,7 @@ def ops_ntpd_sync_updates_to_ovsdb():
     os.system("ops_ntpd_sync_to_ovsdb -c update -d '%s'"%(str_ntpd_updates))
     vlog.info("Sync NTPD -> OVSDB : done")
 
-def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map):
+def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map, trigger_reconfig):
     '''
         This function checks if there are any updates in the NTP
         associations and accordingly updates the global database
@@ -480,6 +482,7 @@ def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map):
     add = []
     delete = []
     add_configs = []
+    revise_configs = []
     add_template_string = ":config server "
     delete_template_string = ":config unconfig "
     for k in list(set(l_ntpa_map.keys() + g_ntpa_map.keys())):
@@ -499,14 +502,26 @@ def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map):
     for x in add:
         (addr, vrf, key_id, ref_clk, pref, ver) = g_ntpa_map[x]
         add_config  = add_template_string+addr
+        add_config += " version "+ver
         if key_id != DEFAULT_NTP_KEY_ID:
             add_config += " key "+key_id
-        if ver != DEFAULT_NTP_VERSION:
-            add_config += " version "+ver
         if pref != DEFAULT_NTP_PREF:
             add_config += " prefer"
         add_configs += [add_config]
-    server_configs = delete_configs + add_configs
+    if trigger_reconfig == True:
+        for x in list(g_ntpa_map.keys()):
+            (addr, vrf, key_id, ref_clk, pref, ver) = g_ntpa_map[x]
+            prefer_str = ""
+            if key_id != DEFAULT_NTP_KEY_ID:
+                revise_configs += [delete_template_string + addr]
+                if pref != DEFAULT_NTP_PREF:
+                    revise_configs += [add_template_string +addr+\
+                        " version %s key %s prefer"%(ver, key_id)]
+                else:
+                    revise_configs += [add_template_string +addr+\
+                        " version %s key %s"%(ver, key_id)]
+    server_configs = revise_configs + delete_configs + add_configs
+    vlog.info("server configs %s"%(pprint.pformat(server_configs)))
     return server_configs
 
 def ops_ntpd_check_updates_with_ntp_keys(l_ntpk_db):
@@ -559,10 +574,45 @@ def ops_ntpd_check_updates_from_ovsdb():
     global ntpq_process
     global cmdline_str
     global g_ntpk_db
+    global auth_state
     ovs_rec = None
     associd = 0
     vlog.info("ops_ntpd_check_updates_from_ovsdb")
     authentication_enable = "false"
+    trigger_reconfig = False
+
+    update_map = {}
+    #Check if ntp authentication is enabled
+    for ovs_rec in idl.tables[SYSTEM_TABLE].rows.itervalues():
+        if ovs_rec.ntp_config and ovs_rec.ntp_config is not None:
+            for key, value in ovs_rec.ntp_config.iteritems():
+                if key == 'authentication_enable':
+                    authentication_enable = value
+    vlog.dbg("Authentication is %s " %(authentication_enable))
+
+    if (auth_state != authentication_enable):
+        trigger_reconfig = True
+        auth_state = authentication_enable
+
+    update_map = {}
+    #Get the NTP key changes
+    for ovs_rec in idl.tables[NTP_KEY_TABLE].rows.itervalues():
+        trust_enable = DEFAULT_NTP_TRUST_ENABLE
+        if ovs_rec.key_id and ovs_rec.key_id is not None:
+            key_id = ovs_rec.key_id
+        if ovs_rec.key_password and ovs_rec.key_password is not None:
+            key_password = ovs_rec.key_password
+        if ovs_rec.trust_enable and ovs_rec.trust_enable is not None:
+            trust_enable = ovs_rec.trust_enable
+        vlog.dbg("trust_enable is %s and auth is %s"%(trust_enable, \
+                authentication_enable))
+        if trust_enable == True and authentication_enable == "true":
+            ops_ntpd_setup_ntp_key_map(update_map, \
+                    key_id, key_password, trust_enable)
+
+    key_configs, keys_file_content = \
+            ops_ntpd_check_updates_with_ntp_keys(update_map)
+    vlog.info("Key config changes %s " %(pprint.pformat(key_configs)))
 
     update_map = {}
     #Get the NTP association configuration changes
@@ -589,37 +639,10 @@ def ops_ntpd_check_updates_from_ovsdb():
         ops_ntpd_setup_ntp_config_map(update_map, vrf, ip_address,
                         associd, key_id, ref_clock_id, prefer, ntp_version)
     server_configs = \
-            ops_ntpd_check_updates_with_ntp_associations(update_map)
+            ops_ntpd_check_updates_with_ntp_associations(update_map, \
+                        trigger_reconfig)
     vlog.dbg("Server config changes %s " %\
             (pprint.pformat(server_configs)))
-
-    update_map = {}
-    #Check if ntp authentication is enabled
-    for ovs_rec in idl.tables[SYSTEM_TABLE].rows.itervalues():
-        if ovs_rec.ntp_config and ovs_rec.ntp_config is not None:
-            for key, value in ovs_rec.ntp_config.iteritems():
-                if key == 'authentication_enable':
-                    authentication_enable = value
-    vlog.dbg("Authentication is %s " %(authentication_enable))
-
-    update_map = {}
-    #Get the NTP key changes
-    for ovs_rec in idl.tables[NTP_KEY_TABLE].rows.itervalues():
-        trust_enable = DEFAULT_NTP_TRUST_ENABLE
-        if ovs_rec.key_id and ovs_rec.key_id is not None:
-            key_id = ovs_rec.key_id
-        if ovs_rec.key_password and ovs_rec.key_password is not None:
-            key_password = ovs_rec.key_password
-        if ovs_rec.trust_enable and ovs_rec.trust_enable is not None:
-            trust_enable = ovs_rec.trust_enable
-        vlog.dbg("trust_enable is %s and auth is %s"%(trust_enable, \
-                authentication_enable))
-        if trust_enable == True and authentication_enable == "true":
-            ops_ntpd_setup_ntp_key_map(update_map, \
-                    key_id, key_password, trust_enable)
-    key_configs, keys_file_content = \
-            ops_ntpd_check_updates_with_ntp_keys(update_map)
-    vlog.dbg("Key config changes %s " %(pprint.pformat(key_configs)))
 
     ops_ntpd_sync_updates_to_ntpd(server_configs, key_configs, \
                                         keys_file_content)
@@ -732,7 +755,7 @@ def ops_ntpd_cleanup_ntpd_processes():
         if 'ntpd -c' in line or 'ntpq' in line:
             pid = int(line.split(None, 1)[0])
             os.kill(pid, signal.SIGKILL)
-            vlog.dbg("Killing zombie ntpd process pid : ",pid)
+            vlog.dbg("Killing zombie ntpd process pid : %s"%pid)
 
 def ops_ntpd_init():
     '''
