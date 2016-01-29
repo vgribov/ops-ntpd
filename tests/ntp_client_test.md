@@ -1,228 +1,261 @@
 # NTP-Client Test Cases
 
-[TOC]
+- [Test initial conditions](#test-initial-conditions)
+- [Test NTP authentication disable/enable](#test-ntp-authentication-disableenable)
+- [Test authentication key addition (valid key)](#test-authentication-key-addition-valid-key)
+- [Test authentication key addition (invalid key)](#test-authentication-key-addition-invalid-key)
+- [Test authentication key addition (invalid password)](#test-authentication-key-addition-invalid-password)
+- [Test addition of NTP server (with no optional parameters)](#test-addition-of-ntp-server-with-no-optional-parameters)
+- [Test addition of NTP server (with "prefer" option)](#test-addition-of-ntp-server-with-prefer-option)
+- [Test addition of NTP server (with "version" option)](#test-addition-of-ntp-server-with-version-option)
+- [Test addition failure of NTP server (with invalid "version" option)](#test-addition-failure-of-ntp-server-with-invalid-version-option)
+- [Test addition of NTP server (with valid "key-id" option)](#test-addition-of-ntp-server-with-valid-key-id-option)
+- [Test addition of NTP server (with invalid "key-id" option)](#test-addition-of-ntp-server-with-invalid-key-id-option)
+- [Test addition of NTP server (with all valid options)](#test-addition-of-ntp-server-with-all-valid-options)
 
-## Test Initial Conditions
+## Test initial conditions
 ### Objective
-Verify that NTP has been enabled
+Verify that NTP has been enabled.
+
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
+
 ### Setup
-#### Topology Diagram
-```
+
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. For this (Dill) release NTP is enabled by default.
-2. Check the output of "show ntp status" to confirm
-### Test Result Criteria
-#### Test Pass Criteria
+### Description
+This test confirms that NTP is enabled by default by displaying the `show ntp status` output.
+
+### Test result criteria
+#### Test pass criteria
 All verifications succeed.
-#### Test Fail Criteria
+#### Test fail criteria
 One or more verifications fail.
 
 ## Test NTP authentication disable/enable
 ### Objective
-Verify that NTP Authentication gets disabled/enabled
+Verify that NTP authentication can be disabled or enabled.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Disable NTP authentication
-2. Check the output of "show ntp status" to confirm
-3. Enable NTP authentication
-4. Check the output of "show ntp status" to confirm
-### Test Result Criteria
-#### Test Pass Criteria
+### Description
+1. Disable NTP authentication and display the output of the 'show ntp status` to confirm that NTP authentication is disabled.
+2. Enable NTP authentication and display the output of `show ntp status` to confirm that NTP authentication is enabled.
+
+
+### Test result criteria
+#### Test pass criteria
 All verifications succeed.
 #### Test Fail Criteria
 One or more verifications fail.
 
 ## Test authentication key addition (valid key)
 ### Objective
-Verify addition of NTP Authentication Key in the valid range with a valid password succeeds
+Verify that the addition of an NTP authentication key succeeds with a valid range with a valid password.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP Authentication key in the range of [1-65534]
-2. Add md5 password containing 8-16 alphanumeric chars
-### Test Result Criteria
-#### Test Pass Criteria
-NTP authentication key gets displayed as part of "show ntp authentication-keys"
+### Description
+1. Add an NTP authentication key in the range of [1-65534].
+2. Add an md5 password containing between 8 to 16 alphanumeric characters.
+3. Confirm the existence of the NTP authentication key with the `show ntp authentication-keys` command.
+
+### Test result criteria
+#### Test pass criteria
+The NTP authentication key is displayed as part of `show ntp authentication-keys` output.
 #### Test Fail Criteria
-NTP authentication key is absent from the output of "show ntp authentication-keys"
+The NTP authentication key is absent from the output of the `show ntp authentication-keys` command.
 
 ## Test authentication key addition (invalid key)
 ### Objective
-Verify addition of NTP Authentication Key outside the valid range fails
+Verify that the addition of NTP Authentication Key fails if it is outside the valid range.
 ### Requirements
- - Virtual Mininet Test Setup
+ The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP Authentication key outside the range of [1-65534]
-### Test Result Criteria
-#### Test Pass Criteria
-NTP authentication key is absent from the output of "show ntp authentication-keys"
-#### Test Fail Criteria
-NTP authentication key gets displayed as part of "show ntp authentication-keys"
+### Description
+Add the NTP authentication key and ensure that it is outside of the [1-65534] range.
 
+### Test result criteria
+#### Test pass criteria
+The NTP authentication key is absent from the `show ntp authentication-keys` command output.
+
+#### Test fail criteria
+The NTP authentication key is displayed as part of `show ntp authentication-keys` command output.
 ## Test authentication key addition (invalid password)
 ### Objective
-Verify addition of NTP Authentication Key with an incorrect password fails
+Verify that the addition of an NTP authentication key fails when the password is incorrect.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP Authentication key with a password lesser than 8 characters
-### Test Result Criteria
-#### Test Pass Criteria
-NTP authentication key is absent from the output of "show ntp authentication-keys"
-#### Test Fail Criteria
-NTP authentication key gets displayed as part of "show ntp authentication-keys"
+### Description
+Add an NTP authentication key with a password that has less than eight characters.
+
+### Test result criteria
+#### Test pass criteria
+The NTP authentication key is absent from the `show ntp authentication-keys` command output.
+#### Test fail criteria
+The NTP authentication key is displayed as part of `show ntp authentication-keys` command output.
 
 ## Test addition of NTP server (with no optional parameters)
 ### Objective
-Verify addition of NTP server with just the server IP/FQDN succeeds
+Verify that the addition of an NTP server succeeds with just the server IP or the server FQDN.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP server using just the IPV4 address
-1. Add NTP server using just the FQDN
-### Test Result Criteria
-#### Test Pass Criteria
-These 2 NTP servers are present in the output of "show ntp associations"
+### Description
+- Add NTP server using just the IPV4 address
+- Add NTP server using just the FQDN
+
+### Test result criteria
+#### Test pass criteria
+These two NTP servers are present in the `show ntp associations` command output.
 #### Test Fail Criteria
-These 2 NTP servers are absent from the output of "show ntp associations"
+These two NTP servers are absent from the `show ntp associations` command output.
 
 ## Test addition of NTP server (with "prefer" option)
 ### Objective
-Verify addition of NTP server with the server IP/FQDN and the "prefer" option succeeds
+Verify that the addition of an NTP server succeeds with the server IP/FQDN and the "prefer" option.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP server using the IPV4 address and the "prefer" option
-### Test Result Criteria
-#### Test Pass Criteria
-This server is present in the output of "show ntp associations"
-#### Test Fail Criteria
-This server is absent from the output of "show ntp associations"
+### Description
+Add an NTP server using an IPv4 address and the "prefer" option.
+
+### Test result criteria
+#### Test pass criteria
+This server is present in the `show ntp associations` command output.
+#### Test fail criteria
+This server is absent from the `how ntp associations` command output.
 
 ## Test addition of NTP server (with "version" option)
 ### Objective
-Verify addition of NTP server with the server IP/FQDN and the valid "version" passes
+Verify that the addition of an NTP server succeeds with the server IP/FQDN and a valid "version".
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP server using the IPV4 address and version as 3 or 4
-### Test Result Criteria
-#### Test Pass Criteria
-This server is present in the output of "show ntp associations" & shows specified version
-#### Test Fail Criteria
-This server is absent from the output of "show ntp associations"
+### Description
+Add an NTP server using the IPV4 address and the version either as 3 or 4.
+### Test result criteria
+#### Test pass criteria
+This server is present in the `show ntp associations` command output and displays the specified version.
+#### Test fail criteria
+This server is absent from the `show ntp associations` command output.
 
 ## Test addition failure of NTP server (with invalid "version" option)
 ### Objective
-Verify addition of NTP server with an invalid "version" fails
+Verify that the addition of an NTP server fails when using an invalid "version".
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add NTP server using the IPV4 address and version as 5
-### Test Result Criteria
-#### Test Pass Criteria
-This server is absent from the output of "show ntp associations"
+### Description
+Add an NTP server using the IPv4 address and a version of "5"
+
+### Test result criteria
+#### Test pass criteria
+This server is absent from the `show ntp associations` command output.
 #### Test Fail Criteria
-This server is present in the output of "show ntp associations" & shows specified version
+This server is present in the `show ntp associations` command output and displays a specified version.
 
 ## Test addition of NTP server (with valid "key-id" option)
+
 ### Objective
-Verify addition of NTP server with the server IP/FQDN and the "key-id" option succeeds
+Verify that the addition of an NTP server succeeds using the server IP/FQDN and the "key-id" option.
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add authentication-key as 10
-2. Add NTP server using the IPV4 address and key-id as 10
-### Test Result Criteria
-#### Test Pass Criteria
-This server is present in the output of "show ntp associations" & shows specified version
+### Description
+1. Add an authentication-key as the number 10.
+2. Add an NTP server using the IPv4 address and the key-id as 10.
+
+### Test result criteria
+#### Test pass criteria
+This server is present in the `show ntp associations` command output and displays the specified version.
 #### Test Fail Criteria
-This server is absent from the output of "show ntp associations"
+This server is absent from the `show ntp associations` command output.
 
 ## Test addition of NTP server (with invalid "key-id" option)
 ### Objective
-Verify addition of NTP server with the server IP/FQDN and invalid "key-id" option fails
+Verify that the addition of an NTP server fails when using the server IP/FQDN and an invalid "key-id" option.
 ### Requirements
- - Virtual Mininet Test Setup
+ The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Delete authentication-key 10 (if present)
-1. Add NTP server using the IPV4 address and key-id as 10
-### Test Result Criteria
-#### Test Pass Criteria
-This server is absent from the output of "show ntp associations"
+
+### Description
+1. Delete the authentication-key number 10 (if present).
+1. Add the NTP server using the IPV4 address and the key-id as 10.
+
+### Test result criteria
+#### Test pass criteria
+This server is absent from the `show ntp associations` command output.
 #### Test Fail Criteria
-This server is present in the output of "show ntp associations" & shows specified version
+This server is present in the `show ntp associations` command output and displays the specified version.
 
 ## Test addition of NTP server (with all valid options)
 ### Objective
-Verify addition of NTP server with the server IP/FQDN and valid "key-id", "prefer" & "version" options succeeds
+Verify that the addition of an NTP server succeeds with the server IP/FQDN and all the following valid options:
+- key-id
+- prefer
+- version
+
 ### Requirements
- - Virtual Mininet Test Setup
+The Virtual Mininet Test Setup is required for this test.
 ### Setup
-#### Topology Diagram
-```
+#### Topology diagram
+```ditaa
 [s1]
 ```
-### Description ###
-1. Add authentication-key as 10
-2. Add NTP server using the IPV4 address and key-id as 10, version as 4 and the prefer option
-### Test Result Criteria
-#### Test Pass Criteria
-This server is present in the output of "show ntp associations" & shows specified key-id & version
-#### Test Fail Criteria
-This server is absent from the output of "show ntp associations"
+### Description
+1. Add an authentication-key as the number 10
+2. Add an NTP server using the IPv4 address with the following options and parameters:
+- Key-id: 10
+- Version: 4
+- Option: prefer
+
+### Test result criteria
+#### Test pass criteria
+This server is present in the `show ntp associations` command output and displays the specified key-id and version.
+#### Test fail criteria
+This server is absent from the `show ntp associations` command output.
