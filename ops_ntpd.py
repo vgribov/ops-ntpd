@@ -331,7 +331,7 @@ def ops_ntpd_sync_updates_to_ntpd(server_configs, key_configs, \
     vlog.dbg("NTPDC command was %s: done"%e)
     e, o = ops_ntpd_run_command(command)
     vlog.dbg("NTPQ command was %s: done"%e)
-    vlog.info("Sync OVSDB -> NTPD : done")
+    vlog.dbg("Sync OVSDB -> NTPD : done")
 
 def ops_ntpd_get_ntpd_associations_info(ntpd_updates):
     '''
@@ -468,7 +468,7 @@ def ops_ntpd_sync_updates_to_ovsdb():
     vlog.dbg("Sync information is \n %s"%(\
         pprint.pformat(ntpd_updates, indent=5)))
     os.system("ops_ntpd_sync_to_ovsdb -c update -d '%s'"%(str_ntpd_updates))
-    vlog.info("Sync NTPD -> OVSDB : done")
+    vlog.dbg("Sync NTPD -> OVSDB : done")
 
 def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map, trigger_reconfig):
     '''
@@ -521,7 +521,7 @@ def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map, trigger_reconfig):
                     revise_configs += [add_template_string +addr+\
                         " version %s key %s"%(ver, key_id)]
     server_configs = revise_configs + delete_configs + add_configs
-    vlog.info("server configs %s"%(pprint.pformat(server_configs)))
+    vlog.dbg("server configs %s"%(pprint.pformat(server_configs)))
     return server_configs
 
 def ops_ntpd_check_updates_with_ntp_keys(l_ntpk_db):
@@ -577,7 +577,7 @@ def ops_ntpd_check_updates_from_ovsdb():
     global auth_state
     ovs_rec = None
     associd = 0
-    vlog.info("ops_ntpd_check_updates_from_ovsdb")
+    vlog.dbg("ops_ntpd_check_updates_from_ovsdb")
     authentication_enable = "false"
     trigger_reconfig = False
 
@@ -612,7 +612,7 @@ def ops_ntpd_check_updates_from_ovsdb():
 
     key_configs, keys_file_content = \
             ops_ntpd_check_updates_with_ntp_keys(update_map)
-    vlog.info("Key config changes %s " %(pprint.pformat(key_configs)))
+    vlog.dbg("Key config changes %s " %(pprint.pformat(key_configs)))
 
     update_map = {}
     #Get the NTP association configuration changes
@@ -716,7 +716,7 @@ def ops_ntpd_start_ntpd(ntpd_info):
         vlog.emer("Error with config, ntpd failed, command %s" %
                   (ntpd_command))
     else:
-        vlog.info("ops-ntpd-debug - ntpd started")
+        vlog.info("ops-ntpd - ntpd started")
 
 def ops_ntpd_provision_ntpd_daemon():
     '''
@@ -729,7 +729,7 @@ def ops_ntpd_provision_ntpd_daemon():
     global ntpd_info
     idl.run()
     if seqno != idl.change_seqno:
-        vlog.info("ops-ntpd-debug - seqno change from %d to %d "
+        vlog.dbg("ops-ntpd-debug - seqno change from %d to %d "
                   % (seqno, idl.change_seqno))
         seqno = idl.change_seqno
         # Check if system is configured and startup config is restored
