@@ -161,7 +161,7 @@ class ntpConfigTest(OpsVsiTest):
                    count = count + 1
 
             s1.cmdCLI("configure terminal")
-            s1.cmdCLI("no ntp authentication-key %s md5 mypassword" % keyid)
+            s1.cmdCLI("no ntp authentication-key %s" % keyid)
             s1.cmdCLI("exit")
             dump = s1.cmdCLI("show ntp authentication-keys")
             lines = dump.split('\n')
