@@ -239,6 +239,8 @@ def ops_ntpd_setup_ntpd_default_config_file(ntp_working_dir_path):
     conf = ops_ntpd_update_content_buffer(conf,
         "#This is generated from ops-ntpd")
     conf = ops_ntpd_update_content_buffer(conf,
+        "tinker panic 0")
+    conf = ops_ntpd_update_content_buffer(conf,
         "trustedkey %s"%(ntpq_info[0]))
     conf = ops_ntpd_update_content_buffer(conf,
         "requestkey %s"%(ntpq_info[0]))
