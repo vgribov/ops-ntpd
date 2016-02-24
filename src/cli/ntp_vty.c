@@ -852,7 +852,7 @@ DEFUN ( vtysh_show_ntp_authentication_keys,
 DEFUN ( vtysh_set_ntp_server,
         vtysh_set_ntp_server_cmd,
         "ntp server WORD "
-        "{prefer | version WORD | key-id WORD}",
+        "{prefer | version <3-4> | key-id <1-65534>}",
         NTP_STR
         NTP_SERVER_STR
         NTP_SERVER_NAME_STR
@@ -933,7 +933,7 @@ DEFUN_NO_FORM ( vtysh_set_ntp_authentication_enable,
 
 DEFUN ( vtysh_set_ntp_authentication_key,
         vtysh_set_ntp_authentication_key_cmd,
-        "ntp authentication-key WORD md5 WORD",
+        "ntp authentication-key <1-65534> md5 WORD",
         NTP_STR
         NTP_AUTH_KEY_STR
         NTP_KEY_NUM_STR
@@ -963,7 +963,7 @@ DEFUN ( vtysh_set_ntp_authentication_key,
 
 DEFUN_NO_FORM ( vtysh_set_ntp_authentication_key,
         vtysh_set_ntp_authentication_key_cmd,
-        "ntp authentication-key WORD",
+        "ntp authentication-key <1-65534>",
         NTP_STR
         NTP_AUTH_KEY_STR
         NTP_KEY_NUM_STR
@@ -972,7 +972,7 @@ DEFUN_NO_FORM ( vtysh_set_ntp_authentication_key,
 
 DEFUN ( vtysh_set_ntp_trusted_key,
         vtysh_set_ntp_trusted_key_cmd,
-        "ntp trusted-key WORD",
+        "ntp trusted-key <1-65534>",
         NTP_STR
         NTP_TRUST_KEY_STR
         NTP_KEY_NUM_STR
@@ -998,7 +998,7 @@ DEFUN ( vtysh_set_ntp_trusted_key,
 
 DEFUN_NO_FORM ( vtysh_set_ntp_trusted_key,
         vtysh_set_ntp_trusted_key_cmd,
-        "ntp trusted-key WORD",
+        "ntp trusted-key <1-65534>",
         NTP_STR
         NTP_TRUST_KEY_STR
         NTP_KEY_NUM_STR
