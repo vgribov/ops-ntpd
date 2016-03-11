@@ -148,8 +148,20 @@ static const bool
 ntp_internal_is_valid_ipv4_address(const char *pntp_server_ipv4_address)
 {
     struct sockaddr_in sa;
+
     int result = inet_pton(AF_INET, pntp_server_ipv4_address, &(sa.sin_addr));
-    return result > 0;
+
+    if (result <= 0)
+       return false;
+
+    /* 0.0.0.0 - 0.255.255.255 are not valid host addresses */
+    if (*pntp_server_ipv4_address == '0')
+       return false;
+
+    if(!IS_VALID_IPV4(htonl(sa.sin_addr.s_addr)))
+        return false;
+
+    return true;
 }
 
 static const bool
