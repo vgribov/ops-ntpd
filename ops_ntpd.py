@@ -41,6 +41,9 @@ import ovs.unixctl
 import ovs.unixctl.server
 from ops_ntpd_sync_to_ovsdb import ops_ntpd_sync_mgr_run
 import multiprocessing
+from ops_eventlog import event_log_init
+from ops_eventlog import log_event
+import ops_diagdump
 
 # OVSDB information
 idl = None
@@ -494,14 +497,17 @@ def ops_ntpd_sync_updates_to_ovsdb():
     ntpd_updates["associations_info"] = {}
     ntpd_updates["statistics"] = {}
     ntpd_updates["status"] = {}
-    ops_ntpd_get_ntpd_associations_info(ntpd_updates)
-    ops_ntpd_get_ntpd_global_status(ntpd_updates)
-    str_ntpd_updates = json.dumps(ntpd_updates)
-    vlog.dbg("Sync information is \n %s" % (
-        pprint.pformat(ntpd_updates, indent=5)))
+    try:
+        ops_ntpd_get_ntpd_associations_info(ntpd_updates)
+        ops_ntpd_get_ntpd_global_status(ntpd_updates)
+        str_ntpd_updates = json.dumps(ntpd_updates)
+        vlog.dbg("Sync information is \n %s" % (
+            pprint.pformat(ntpd_updates, indent=5)))
 
-    ops_ntpd_send_info_to_transaction_mgr(str_ntpd_updates)
-    vlog.dbg("Sync NTPD -> OVSDB : done")
+        ops_ntpd_send_info_to_transaction_mgr(str_ntpd_updates)
+        vlog.dbg("Sync NTPD -> OVSDB : done")
+    except Exception as e:
+        vlog.warn("Unable to sync NTPD info -> OVSDB : err %s" % (str(e)))
 
 
 def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map, trigger_reconfig):
@@ -522,15 +528,36 @@ def ops_ntpd_check_updates_with_ntp_associations(l_ntpa_map, trigger_reconfig):
     for k in list(set(l_ntpa_map.keys() + g_ntpa_map.keys())):
         if k in l_ntpa_map.keys():
             v = l_ntpa_map[k]
+            event = ""
+            if v[2] != 0:
+                server_info = "prefer %s, ver %s, key %s" %\
+                            (str(v[4]), str(v[5]), str(v[2]))
+            else:
+                server_info = "prefer %s, ver %s" %\
+                            (str(v[4]), str(v[5]))
             if k not in g_ntpa_map.keys():
                 add.append(k)
                 g_ntpa_map[k] = v
+                event = "Add"
             elif v != g_ntpa_map[k]:
                 delete.append(k)
                 add.append(k)
                 g_ntpa_map[k] = v
+                event = "Change"
+            if event != "":
+                log_event(
+                          "NTP_ASSOC",
+                          ["event", event],
+                          ["server", v[0]],
+                          ["server_info", server_info])
         else:
             delete.append(k)
+            v = g_ntpa_map[k]
+            log_event(
+                      "NTP_ASSOC",
+                      ["event", "Delete"],
+                      ["server", v[0]],
+                      ["server_info", ""])
             del g_ntpa_map[k]
     delete_configs = [delete_template_string + x[1] for x in delete]
     for x in add:
@@ -570,6 +597,8 @@ def ops_ntpd_check_updates_with_ntp_keys(l_ntpk_db):
     add_template_string = " %s MD5 %s"
     trustedkey_template_string = ":config trustedkey "
     untrustedkey_template_string = ":config unconfig trustedkey "
+    t_keys_str = "-"
+    unt_keys_str = "-"
     trusted_keys = []
     untrusted_keys = []
     trusted_key_config = []
@@ -590,9 +619,15 @@ def ops_ntpd_check_updates_with_ntp_keys(l_ntpk_db):
     if len(trusted_keys) > 0:
         trusted_key_config += [trustedkey_template_string +
                                " ".join([str(x) for x in trusted_keys])]
+        t_keys_str = " ".join([str(x) for x in trusted_keys])
     if len(untrusted_keys) > 0:
         untrusted_key_config += [untrustedkey_template_string +
                                  " ".join([str(x) for x in untrusted_keys])]
+        unt_keys_str = " ".join([str(x) for x in untrusted_keys])
+    if t_keys_str != "-" or unt_keys_str != "-":
+        log_event("NTP_KEY",
+                  ["trusted_keys", t_keys_str],
+                  ["untrusted_keys", unt_keys_str])
     key_config = untrusted_key_config + trusted_key_config
     keys_file_content += "\n"
     return key_config, keys_file_content
@@ -627,6 +662,9 @@ def ops_ntpd_check_updates_from_ovsdb():
 
     if (auth_state != authentication_enable):
         trigger_reconfig = True
+        log_event(
+                  "NTP_GLOBAL",
+                  ["old", auth_state], ["new", authentication_enable])
         auth_state = authentication_enable
 
     update_map = {}
@@ -674,6 +712,7 @@ def ops_ntpd_check_updates_from_ovsdb():
         ops_ntpd_setup_ntp_config_map(
                 update_map, vrf, ip_address,
                 associd, key_id, ref_clock_id, prefer, ntp_version)
+
     server_configs = \
         ops_ntpd_check_updates_with_ntp_associations(update_map,
                                                      trigger_reconfig)
@@ -762,6 +801,7 @@ def ops_ntpd_setup_ntpd_default_config():
     conf_file = ops_ntpd_setup_ntpd_default_config_file(ntp_dir_path)
     keys_file = ops_ntpd_setup_ntpd_default_keys_file(ntp_dir_path)
     log_file = ops_ntpd_setup_ntpd_default_log_file(ntp_dir_path)
+    vlog.info("NTP default files setup done")
     return (conf_file, keys_file, log_file)
 
 
@@ -825,6 +865,38 @@ def ops_ntpd_cleanup_ntpd_processes():
             vlog.dbg("Killing zombie ntpd process pid : %s" % pid)
 
 
+def ops_ntpd_diagnostics_handler(argv):
+    global ntpd_info
+    # argv[0] is basic
+    # argv[1] is feature name
+    feature = argv.pop()
+    buff = 'Diagnostic dump for ' + feature + '.\n'
+    (conf_file, keys_file, log_file) = ntpd_info
+
+    # Capture the configuration file info with ntpd
+    with open(conf_file, "r") as f:
+        fbuff = ['NTPD configuration file\n']
+        fbuff += ['===============================================\n']
+        fbuff += f.readlines()
+
+    # Capture the keys_file info with ntpd
+    with open(keys_file, "r") as f:
+        fbuff += ['NTPD keys file\n']
+        fbuff += ['===============================================\n']
+        fbuff += f.readlines()
+
+    # Capture the log_file info with ntpd
+    with open(log_file, "r") as f:
+        fbuff += ['NTPD log file\n']
+        fbuff += ['===============================================\n']
+        fbuff += f.readlines()
+
+    for x in fbuff:
+        buff += x
+
+    return buff
+
+
 def ops_ntpd_init():
     '''
        This function
@@ -854,6 +926,8 @@ def ops_ntpd_init():
         remote = args.database
     ops_ntpd_setup_ovsdb_monitoring(remote)
     ovs.daemon.daemonize()
+    ovs.daemon.set_pidfile(None)
+    ovs.daemon._make_pidfile()
     ovs.unixctl.command_register("exit", "", 0, 0,
                                  ops_ntpd_connection_exit_handler, None)
     error, unixctl_server = ovs.unixctl.server.UnixctlServer.create(None)
@@ -864,6 +938,13 @@ def ops_ntpd_init():
     while ntpd_started is False:
         ops_ntpd_provision_ntpd_daemon()
         time.sleep(2)
+
+    # Event logging init for NTP
+    event_log_init("NTP")
+
+    # Diags callback init for NTP
+    ops_diagdump.init_diag_dump_basic(ops_ntpd_diagnostics_handler)
+
     seqno = idl.change_seqno    # Sequence number when we last processed the db
     exiting = False
     while not exiting:
