@@ -152,6 +152,9 @@ def test_ntpd_ft_auth_noauth_restart(topology, step):
     with ops1.libs.vtysh.ConfigInterfaceMgmt() as ctx:
         ctx.ip_static(MGMT_IP_CONFIG)
 
+    # Adding sleep to provide enough time for assigning IP on 6712 and 7712
+    sleep(5)
+
     # Configure host IP addresses
     hs1_ip = WORKSTATION_IP_ADDR_SER1 + "/24"
     hs2_ip = WORKSTATION_IP_ADDR_SER2 + "/24"
